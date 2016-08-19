@@ -1,29 +1,26 @@
 from pulp import models, serializers
 
 import json
-import django_filters
 from rest_framework import filters, routers, viewsets
 
 
-class RepositoryFilter(filters.FilterSet):
-    repo__in = django_filters.MethodFilter(action='in_list_filter')
+class JSONQueryParamViewSet(viewsets.ModelViewSet):
 
-    class Meta:
-        model = models.Repository
-        fields = ['slug', 'repo__in']
+    def get_queryset(self):
+        qs = self.queryset
+        for key, value in self.request.query_params.items():
+            if key.endswith('__in'):
+                qs_filter = {key: json.loads(value)}
+                qs = qs.filter(**qs_filter)
 
-    def in_list_filter(self, queryset, value):
-        value = json.loads(value)
-        return queryset.filter(slug__in=value)
+        return qs
 
 
-class RepositoryViewSet(viewsets.ModelViewSet):
+class RepositoryViewSet(JSONQueryParamViewSet):
     lookup_field = 'slug'
     queryset = models.Repository.objects.all()
     serializer_class = serializers.RepositorySerializer
     filter_backends = (filters.DjangoFilterBackend,)
-    filter_class = RepositoryFilter
-
 
 # XXX DO NOT register ContentUnitViewSet with the router.
 # It's here to be subclasses by the specific unit types,
